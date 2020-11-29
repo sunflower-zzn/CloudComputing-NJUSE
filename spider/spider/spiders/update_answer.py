@@ -3,7 +3,7 @@ import json
 import scrapy
 import time
 import pymongo
-
+from lxml import  etree
 from spider.items import AnswerItem
 from spider.settings import MONGODB_PORT
 from spider.settings import MONGODB_HOST
@@ -45,7 +45,12 @@ class UpdateSpider(scrapy.Spider):
             self.start_urls.append(nextUrl['next'])
         for d in dataList:
             if int(d['created_time']) > self.current_time:
-                Item['content'] = d['excerpt'].replace("[图片]", "").replace("[视频]", "")
+                content = d['content']
+                # 收集到的content带有前端标签，利用lxml的etree去除标签
+                response = etree.HTML(text=content)
+                content = response.xpath('string(.)')
+
+                Item['content'] = content
                 Item['title'] = d['question']['title']
                 Item['created_time'] = timeTransfer(d['created_time'])
                 yield Item

@@ -1,5 +1,5 @@
 import json
-
+import re
 import scrapy
 import pymongo
 from spider.settings import MONGODB_PORT
@@ -9,6 +9,7 @@ from spider.settings import MONGODB_A_SHEET_NAME
 from spider.settings import MONGODB_Q_SHEET_NAME
 from spider.tools.time_transfer import timeTransfer
 from spider.items import AnswerItem
+from lxml import etree
 from scrapy.http import Request, FormRequest
 
 
@@ -27,14 +28,14 @@ class AnswerSpider(scrapy.Spider):
         client = pymongo.MongoClient(host=self.host, port=self.port)
         db = client[self.database]
         collection = db[self.sheet]
-        # print("123")
+
         for item in collection.find():
             print(item['id'])
             print(item['title'])
             self.start_urls.append(self.base_url.format(item['id']))
-            # yield Request(self.base_url.format(item['id']),callback=self.parse)
 
     def parse(self, response):
+        # 保存为AnswerItem交给piplines处理
         Item = AnswerItem()
         data = json.loads(response.body)
         dataList = data['data']
@@ -42,13 +43,17 @@ class AnswerSpider(scrapy.Spider):
         if not nextUrl['is_end']:
             self.start_urls.append(nextUrl['next'])
         for d in dataList:
-            Item['content'] = d['excerpt'].replace("[图片]", "").replace("[视频]", "")
+            content = d['content']
+            # 收集到的content带有前端标签，利用lxml的etree去除标签
+            response = etree.HTML(text=content)
+            content = response.xpath('string(.)')
+
+            Item['content'] = content
             Item['title'] = d['question']['title']
             Item['created_time'] = timeTransfer(d['created_time'])
             yield Item
             print(d['question']['title'])
             print("-------------------------")
-            print(d['excerpt'].replace("[图片]", "").replace("[视频]", ""))
+            print(content)
             print(timeTransfer(d['created_time']))
         pass
-# 21238418
