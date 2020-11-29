@@ -15,12 +15,21 @@ MONGODB_S_SHEET_NAME = "separate"
 def cal(string):
     # 停用词集合
     stop_words = readFile('baidu_stopwords.txt')
+    # 分词，同时剔除停用词
+    word_list = [word for word in jieba.cut(string, cut_all=False) if word not in stop_words]
+    dic_words = dict(Counter(word_list))
+    return dic_words
+
+
+def cal_separate(string):
+    # 停用词集合
+    stop_words = readFile('baidu_stopwords.txt')
 
     # 分词，同时剔除停用词
     word_list = []
     word_list = [word for word in jieba.cut(string, cut_all=False) if word not in stop_words]
-    dic_words = dict(Counter(word_list))
-    return dic_words
+    # print(word_list)
+    return word_list
 
 
 # 从mongoDB中读取数据
@@ -64,6 +73,20 @@ def separate_month(questionList):
     return result
 
 
+# 答案按天分类
+def separate_day(questionList):
+    result = {}
+    for question in questionList:
+        created_time = question['created_time'].split(" ")[0]
+        if created_time in result:
+            temp = result[created_time]
+            temp += question['content']
+            result[created_time] = temp
+        else:
+            result[created_time] = question['content']
+    return result
+
+
 # 将分词结果存入mongodb
 def storeMongoDB(data):
     host = MONGODB_HOST
@@ -75,41 +98,47 @@ def storeMongoDB(data):
     sheet.insert_one(data)
 
 
-if __name__ == "__main__":
-
-    dic = separate_month((readMongoDB()))
-
-    words = {}
-
-    # for key, val in dic.items():
-    #     print(key)
-    #     print("------------")
-    #     sorted_words = sorted(cal(val).items(), key=lambda d: d[1], reverse=True)
-    #     for word in sorted_words[:100]:
-    #         print(word)
+def deal_separate(type):
+    if type == "month":
+        dic = separate_month(readMongoDB())
+    else:
+        dic = separate_day(readMongoDB())
     total_data = {}
-
     for key in sorted(dic):
         print(key)
         print("-------")
+        word_list = cal_separate((dic[key]))
+        print(word_list)
+        total_data[key] = "|".join(word_list)
+    print(total_data)
+    j = json.dumps(total_data, ensure_ascii=False, indent=5)
+    with open("separateWord_" + type + ".json", 'w', encoding="utf-8") as f:
+        f.write(j)
+    return total_data
+
+
+def deal_count(type):
+    if type == "month":
+        dic = separate_month(readMongoDB())
+    else:
+        dic = separate_day(readMongoDB())
+
+    total_data = {}
+    for key in sorted(dic):
         sorted_words = sorted(cal(dic[key]).items(), key=lambda d: d[1], reverse=True)
         data = {}
         db_data = {}
-        tempList = []
         for word in sorted_words[:100]:
             data[word[0]] = word[1]
             print(word[0], ":", word[1])
-            tempList.append(word[0] + ":" + str(word[1]))
         total_data[key] = data
-        db_data[key] = ",".join(tempList)
         storeMongoDB(db_data)
-        # print(word[1])
-        j = json.dumps(data, ensure_ascii=False, indent=5)
-        with open(key + 'month.json', "w", encoding='utf-8') as output_file:
-            output_file.write(j)
-            print("加载数据完成...")
-    # print(total_data)
-
+    print(total_data)
     j = json.dumps(total_data, ensure_ascii=False, indent=5)
-    with open("separate.json", 'w',encoding="utf-8") as f:
-        f.write(j)
+    with open("countWord" + type + '.json', "w", encoding='utf-8') as output_file:
+        output_file.write(j)
+        print("加载数据完成...")
+
+
+if __name__ == "__main__":
+    deal_separate("day")
