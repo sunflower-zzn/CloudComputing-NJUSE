@@ -1,5 +1,3 @@
-[TOC]
-
 # Scrapy爬虫使用
 
 ## 简介
@@ -90,7 +88,7 @@ global_step = 1605
 loss = 0.30984673
 ```
 
-fine-tune训练模型下载：[oss://zzn-normal/学习/my_model.zip](oss://zzn-normal/学习/my_model.zip)
+fine-tune训练模型下载：https://zzn-normal.oss-cn-beijing.aliyuncs.com/%E5%AD%A6%E4%B9%A0/my_model.zip
 
 使用predict.sh执行批量预测任务：
 
